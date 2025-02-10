@@ -1,2 +1,0 @@
-# Epileptic-Seizures-
-TTU Research 
