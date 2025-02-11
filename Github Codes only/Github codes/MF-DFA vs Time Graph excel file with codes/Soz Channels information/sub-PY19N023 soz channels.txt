@@ -1,0 +1,11 @@
+['POL RA1',
+'POL RA2',
+'POL RAH1',
+'POL RAH2',
+'POL RPH1',
+'POL RMM5',
+'POL RMM6',
+'POL RMI3',
+'POL RMI4',
+'POL RMI5'
+]

@@ -1,0 +1,1 @@
+soz_channels = ['POL LF1', 'POL LA1', 'POL LA2', 'POL LA3', 'POL LH1', 'POL LH2', 'POL LH3']
