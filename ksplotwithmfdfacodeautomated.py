@@ -11,7 +11,7 @@ from scipy.stats import ks_2samp
 data_dir = r"C:\Engel 1 Subjects\allfiles"
 soz_csv = os.path.join(data_dir, "SOZ_Channels_info.csv")
 seconds_to_analyze = None   # or set a float
-q_values = np.linspace(-5.0, 5.0, 101)
+q_values = np.linspace(-20.0, 20.0, 401)
 scale_min, scale_max = 16, 4096
 
 # === LOAD SOZ INFO AND CLEAN ===
@@ -69,8 +69,8 @@ def MFDFA(signal, scale_min, scale_max, _ignored, q_values):
     # 3. pre‑allocate storage
     fluctuation      = np.zeros((len(scales), len(q_values)))
     hurst_exponents  = np.zeros(len(q_values))
-    regression_lines = []
-    tq_values        = np.zeros(len(q_values))
+    # regression_lines = []
+    # tq_values        = np.zeros(len(q_values))
 
     # 4. compute F(s) for each segment and each scale
     for s_idx, s in enumerate(scales):
@@ -103,14 +103,15 @@ def MFDFA(signal, scale_min, scale_max, _ignored, q_values):
         C     = np.polyfit(log_scales, log_F, 1)
         Hq    = C[0]
         hurst_exponents[qi] = Hq
-        regression_lines.append(np.polyval(C, log_scales))
-        tq_values[qi] = Hq * q - 1
+        # regression_lines.append(np.polyval(C, log_scales))
+        # tq_values[qi] = Hq * q - 1
 
     # 7. compute multifractal spectrum derivative d(q)
-    dq_values = np.diff(tq_values) / np.diff(q_values)
+    # dq_values = np.diff(tq_values) / np.diff(q_values)
 
-    return scales, fluctuation, hurst_exponents, regression_lines, tq_values, dq_values
+    # return scales, fluctuation, hurst_exponents, regression_lines, tq_values, dq_values
 
+    return scales, fluctuation, hurst_exponents
 
 # === CHANNEL‐LEVEL WORKER ===
 def process_channel(args):
@@ -152,62 +153,86 @@ def main():
 
         fp = os.path.join(data_dir, fname)
         results = process_file(fp, soz_list, seconds_to_analyze)
+        # --- NEW FEATURE: if we’ve matched every SOZ in soz_list, print their names ---
+        matched = [r[1] for r in results if r[0] == 'SOZ']                        # original ch names
+        clean_matched = [clean_channel_name(ch) for ch in matched]               # cleaned names
+        if set(clean_matched) >= set(soz_list):                                  # all GT SOZ channels found?
+           print(f"→ All SOZ channels matched for subject {sub}: {matched}")
+
 
         # split SOZ vs Normal
         soz_hq  = np.array([r[4] for r in results if r[0]=='SOZ'])
         norm_hq = np.array([r[4] for r in results if r[0]=='Normal'])
-        soz_tq  = np.array([r[5] for r in results if r[0]=='SOZ'])
-        norm_tq = np.array([r[5] for r in results if r[0]=='Normal'])
+
 
         mean_soz_h = soz_hq.mean(0)
         mean_n_h  = norm_hq.mean(0)
-        mean_soz_t = soz_tq.mean(0)
-        mean_n_t   = norm_tq.mean(0)
+
 
         base = os.path.splitext(fname)[0]
         # Hurst plot
         plt.figure(figsize=(7,5))
-        plt.plot(q_values, mean_soz_h, 'o-', label='EZ')
-        plt.plot(q_values, mean_n_h,  's-', label='Non‑EZ')
+        plt.plot(q_values, mean_soz_h, 'o-', label='EZ' , color='red')
+        plt.plot(q_values, mean_n_h,  's-', label='Non‑EZ', color='blue')
         plt.xlabel('q‑order'); plt.ylabel('H(q)')
         plt.title(f'Hurst H(q) — {sub}')
         plt.legend(); plt.grid('--', lw=0.5)
         plt.tight_layout()
         plt.savefig(os.path.join(data_dir, f"{base}_hurst.png"), dpi=300)
         plt.close()
+        
+        
+        # === single KS on the two mean curves ===
+        ks_stat, p_val = ks_2samp(mean_soz_h, mean_n_h)
 
-        # # Mass exponent plot
-        # plt.figure(figsize=(7,5))
-        # plt.plot(q_values, mean_soz_t, 'o-', label='EZ')
-        # plt.plot(q_values, mean_n_t,  's-', label='Non‑EZ')
-        # plt.xlabel('q‑order'); plt.ylabel('t(q)')
-        # plt.title(f'Mass Exponent t(q) — {sub}')
-        # plt.legend(); plt.grid('--', lw=0.5)
-        # plt.tight_layout()
-        # plt.savefig(os.path.join(data_dir, f"{base}_tq.png"), dpi=300)
-        # plt.close()
+        df_ks = pd.DataFrame(
+            [ks_stat, p_val],
+            index=['ks_statistic','p_value'],
+            columns=['value']
+        )
+        df_ks.index.name = 'metric'
+        out_ks = os.path.join(data_dir, f"{base}_ks_on_mean.csv")
+        df_ks.to_csv(out_ks)
+        print(f"→ Saved KS on mean curves to {base}_ks_on_mean.csv")
 
-        # KS tests per q
-        ks_s, ks_p = [], []
-        for i in range(len(q_values)):
-            s_vals = soz_hq[:,i]
-            n_vals = norm_hq[:,i]
-            st, pv = ks_2samp(s_vals, n_vals)
-            ks_s.append(st); ks_p.append(pv)
+    #     # KS tests per q → collect into list of dicts
+    #     ks_results = []
+    #     for i, q in enumerate(q_values):
+    #         s_vals = mean_soz_h[:, i]   # H(q) across SOZ channels
+    #         n_vals = mean_n_h[:, i]  # H(q) across Normal channels
+    #         st, pv = ks_2samp(s_vals, n_vals)
+    #         ks_results.append({
+    #           'q':           q,
+    #          'ks_statistic': st,
+    #          'p_value':     pv
+    #               })
 
-        plt.figure(figsize=(12,5))
-        plt.subplot(1,2,1)
-        plt.plot(q_values, ks_s, label='KS stat'); plt.grid('--', lw=0.5)
-        plt.title(f'KS Statistic — {sub}'); plt.xlabel('q'); plt.ylabel('D')
+    #     # build DataFrame and save
+    # ks_df = pd.DataFrame(ks_results)
+    # out_csv = os.path.join(data_dir, f"{base}_ks.csv")
+    # ks_df.to_csv(out_csv, index=False)
+    # print(f"→ Saved KS results to {out_csv}")
+    #     # # KS tests per q
+    #     # ks_s, ks_p = [], []
+    #     # for i in range(len(q_values)):
+    #     #     s_vals = mean_soz_h[:,i]
+    #     #     n_vals = mean_n_h[:,i]
+    #     #     st, pv = ks_2samp(s_vals, n_vals)
+    #     #     ks_s.append(st); ks_p.append(pv)
 
-        plt.subplot(1,2,2)
-        plt.plot(q_values, ks_p, label='p‑value'); 
-        plt.axhline(0.05, ls='--', color='r', label='α=0.05')
-        plt.title(f'p‑value — {sub}'); plt.xlabel('q'); plt.ylabel('p')
-        plt.legend(); plt.grid('--', lw=0.5)
-        plt.tight_layout()
-        plt.savefig(os.path.join(data_dir, f"{base}_ks.png"), dpi=300)
-        plt.close()
+    #     # plt.figure(figsize=(12,5))
+    #     # plt.subplot(1,2,1)
+    #     # plt.plot(q_values, ks_s, label='KS stat'); plt.grid('--', lw=0.5)
+    #     # plt.title(f'KS Statistic — {sub}'); plt.xlabel('q'); plt.ylabel('D')
+
+    #     # plt.subplot(1,2,2)
+    #     # plt.plot(q_values, ks_p, label='p‑value'); 
+    #     # plt.axhline(0.05, ls='--', color='r', label='α=0.05')
+    #     # plt.title(f'p‑value — {sub}'); plt.xlabel('q'); plt.ylabel('p')
+    #     # plt.legend(); plt.grid('--', lw=0.5)
+    #     # plt.tight_layout()
+    #     # plt.savefig(os.path.join(data_dir, f"{base}_ks.png"), dpi=300)
+    #     # plt.close()
 
 if __name__ == "__main__":
     main()
