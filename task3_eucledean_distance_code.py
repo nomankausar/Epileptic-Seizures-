@@ -55,63 +55,40 @@ def fuzzy_match(ch, soz_list):
         if ch in soz or soz in ch:
             return True
     return False
-# === MFDFA (fixed) ===
-def MFDFA(signal, scale_min, scale_max, _ignored, q_values):
-    # 1. integrate the zero‑mean signal
+
+
+def MFDFA(signal, scale_min, scale_max, q_vals):
     x = np.cumsum(signal - np.mean(signal))
+    scales = 2 ** np.arange(int(np.log2(scale_min)),
+                           int(np.log2(scale_max))+1)
+    # instantiation variables
+    fluct = np.zeros((len(scales), len(q_vals)))
+    Hq    = np.zeros(len(q_vals))
 
-    # 2. define scales
-    scales = 2 ** np.arange(
-        int(np.log2(scale_min)),
-        int(np.log2(scale_max)) + 1
-    )
-
-    # 3. pre‑allocate storage
-    fluctuation      = np.zeros((len(scales), len(q_values)))
-    hurst_exponents  = np.zeros(len(q_values))
-    # regression_lines = []
-    # tq_values        = np.zeros(len(q_values))
-
-    # 4. compute F(s) for each segment and each scale
-    for s_idx, s in enumerate(scales):
-        n_segments = len(x) // s
-        F_s = []  # collect per‑segment RMS
-
-        for i in range(n_segments):
-            segment = x[i*s:(i+1)*s]
-            time    = np.arange(s)
-            coeffs  = np.polyfit(time, segment, 1)
-            trend   = np.polyval(coeffs, time)
-            F_s.append(np.sqrt(np.mean((segment - trend)**2)))
-
-        F_s = np.array(F_s)
-        F_s = F_s[F_s > 1e-8]  # drop degenerate segments
-
-        # 5. fluctuation function for each q
-        for qi, q in enumerate(q_values):
-            if q < 0:
-                fluctuation[s_idx, qi] = np.exp(np.mean(np.log(F_s)))
-            elif q == 0:
-                fluctuation[s_idx, qi] = np.exp(0.5 * np.mean(np.log(F_s**2)))
+    # find fluctuations across all scales
+    for si, s in enumerate(scales):
+        segs = len(x)//s # length of the segment
+        F_s  = [] # fluctuations
+        for i in range(segs): # iterate over all segments
+            seg = x[i*s:(i+1)*s] # extract each data segment
+            t   = np.arange(s) # array from 0 to s-1
+            cfs = np.polyfit(t, seg, 1)
+            trend = np.polyval(cfs, t)
+            F_s.append(np.sqrt(np.mean((seg - trend)**2))) # compute fluctuation and append
+        F_s = np.array(F_s) # convert to a numpy array
+        F_s = F_s[F_s>1e-8] # check if fluctuation is greater thn 1e-8 and replace with 0
+        for qi, q in enumerate(q_vals):
+            if q==0:
+                fluct[si,qi] = np.exp(0.5*np.mean(np.log(F_s**2)))
             else:
-                fluctuation[s_idx, qi] = np.mean(F_s**q)**(1.0/q)
+                fluct[si,qi] = np.mean(F_s**q)**(1.0/q)
 
-    # 6. fit log‑log to get H(q), regression lines, and t(q)
-    log_scales = np.log2(scales)
-    for qi, q in enumerate(q_values):
-        log_F = np.log2(np.clip(fluctuation[:, qi], 1e-8, None))
-        C     = np.polyfit(log_scales, log_F, 1)
-        Hq    = C[0]
-        hurst_exponents[qi] = Hq
-        # regression_lines.append(np.polyval(C, log_scales))
-        # tq_values[qi] = Hq * q - 1
+    log_sc = np.log2(scales)
+    for qi in range(len(q_vals)):
+        log_F = np.log2(fluct[:,qi])
+        Hq[qi] = np.polyfit(log_sc, log_F,1)[0]
 
-    # 7. compute multifractal spectrum derivative d(q)
-    # dq_values = np.diff(tq_values) / np.diff(q_values)
-
-    # return scales, fluctuation, hurst_exponents, regression_lines, tq_values, dq_values
-
-    return scales, fluctuation, hurst_exponents
+    return Hq
 
 # === CHANNEL‐LEVEL WORKER ===
 def process_channel(args):
