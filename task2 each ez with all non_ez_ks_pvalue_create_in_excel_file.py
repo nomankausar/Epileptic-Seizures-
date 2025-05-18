@@ -43,37 +43,40 @@ def clean_channel_name(name):
 def fuzzy_match(ch, soz_list):
     return any(ch in soz or soz in ch for soz in soz_list)
 
-def MFDFA(signal, scale_min, scale_max, _ignored, q_vals):
+def MFDFA(signal, scale_min, scale_max, q_vals):
     x = np.cumsum(signal - np.mean(signal))
     scales = 2 ** np.arange(int(np.log2(scale_min)),
                            int(np.log2(scale_max))+1)
+    # instantiation variables
     fluct = np.zeros((len(scales), len(q_vals)))
     Hq    = np.zeros(len(q_vals))
 
+    # find fluctuations across all scales
     for si, s in enumerate(scales):
-        segs = len(x)//s
-        F_s  = []
-        for i in range(segs):
-            seg = x[i*s:(i+1)*s]
-            t   = np.arange(s)
+        segs = len(x)//s # length of the segment
+        F_s  = [] # fluctuations
+        for i in range(segs): # iterate over all segments
+            seg = x[i*s:(i+1)*s] # extract each data segment
+            t   = np.arange(s) # array from 0 to s-1
             cfs = np.polyfit(t, seg, 1)
             trend = np.polyval(cfs, t)
-            F_s.append(np.sqrt(np.mean((seg - trend)**2)))
-        F_s = np.array(F_s)
-        F_s = F_s[F_s>1e-8]
+            F_s.append(np.sqrt(np.mean((seg - trend)**2))) # compute fluctuation and append
+        F_s = np.array(F_s) # convert to a numpy array
+        F_s = F_s[F_s>1e-8] # check if fluctuation is greater thn 1e-8 and replace with 0
         for qi, q in enumerate(q_vals):
-            if q<0:
-                fluct[si,qi] = np.exp(np.mean(np.log(F_s)))
-            elif q==0:
+            if q==0:
                 fluct[si,qi] = np.exp(0.5*np.mean(np.log(F_s**2)))
             else:
                 fluct[si,qi] = np.mean(F_s**q)**(1.0/q)
 
     log_sc = np.log2(scales)
     for qi in range(len(q_vals)):
-        log_F = np.log2(np.clip(fluct[:,qi],1e-8,None))
+        log_F = np.log2(fluct[:,qi])
         Hq[qi] = np.polyfit(log_sc, log_F,1)[0]
+
     return Hq
+
+
 
 def process_channel(args):
     data, ch_name, soz_list = args
