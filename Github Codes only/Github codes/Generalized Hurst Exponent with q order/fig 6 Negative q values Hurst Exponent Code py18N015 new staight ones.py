@@ -37,9 +37,8 @@ def MFDFA(signal, scale_min, scale_max, scale_res, q_values):
         F_s = F_s[F_s > 1e-8]  # Avoid numerical instability
 
         for nq, q in enumerate(q_values):
-            if q < 0:
-                fluctuation[s_idx, nq] = np.exp(np.mean(np.log(F_s[F_s > 0])))  # Logarithmic averaging
-            elif q == 0:
+
+            if q == 0:
                 fluctuation[s_idx, nq] = np.exp(0.5 * np.mean(np.log(F_s**2)))
             else:
                 fluctuation[s_idx, nq] = np.mean(F_s**q) ** (1.0 / q)
