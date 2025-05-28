@@ -9,7 +9,7 @@ from scipy.stats import sem
 fif_dir = r'C:\Engel 1 Subjects\100s cropped raw fif file'  # Modify this path as needed
 
 # Define the selected q-values for fast computation
-q_values = np.linspace(-5.00, 5.00, num=int((5.00 - (-5.00)) / 0.1) + 1)
+q_values = np.linspace(-20.00, 20.00, num=int((20.00 - (-20.00)) / 0.1) + 1)
 
 # Define SOZ channels
 soz_channels = ['POL LF1', 'POL LA1', 'POL LA2', 'POL LA3', 'POL LH1', 'POL LH2', 'POL LH3']
