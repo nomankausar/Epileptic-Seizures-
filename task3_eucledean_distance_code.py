@@ -136,7 +136,7 @@ def main():
         print(f"→ Euclidean distance at q=20: {euclidean_dist:.5f}")
 
         # Annotate arrow and label
-        x_pos = 20
+        x_pos = 19.5
         plt.annotate('', xy=(x_pos, hz_soz_q20), xytext=(x_pos, hz_norm_q20),
                      arrowprops=dict(arrowstyle='<->', color='black', lw=1.5))
         mid_y = (hz_soz_q20 + hz_norm_q20) / 2
