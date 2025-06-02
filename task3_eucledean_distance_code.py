@@ -95,7 +95,7 @@ def process_channel(args):
     data, ch_name, soz_list = args
     clean_nm = clean_channel_name(ch_name)
     label = 'SOZ' if fuzzy_match(clean_nm, soz_list) else 'Normal'
-    return (label, ch_name, *MFDFA(data, scale_min, scale_max, None, q_values))
+    return (label, ch_name, *MFDFA(data, scale_min, scale_max, q_values))
 
 # === FILE‐LEVEL PROCESSING ===
 def process_file(filepath, soz_list, max_dur=None):
