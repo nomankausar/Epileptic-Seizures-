@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Dec 27 04:45:44 2024
-
-@author: abuno
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 17 21:11:21 2024
-
-@author: abuno
-"""
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -90,3 +77,4 @@ if __name__ == "__main__":
             process_file(file_path, fluctuation_directory, output_directory)
 
     print(f"All plots saved in: {output_directory}")
+
